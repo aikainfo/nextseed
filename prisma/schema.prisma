@@ -1,0 +1,332 @@
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User roles: student, mentor, business
+enum UserRole {
+  student
+  mentor
+  business
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean?
+  image         String?
+  role          UserRole  @default(student)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Auth Relations
+  sessions Session[]
+  accounts Account[]
+
+  // Profile Relations (Table-per-Role)
+  studentProfile  StudentProfile?
+  mentorProfile   MentorProfile?
+  businessProfile BusinessProfile?
+
+  // Interactions
+  reviewsWritten Review[] @relation("ReviewsWritten")
+
+  @@map("user")
+}
+
+// --- PROFILE TABLES ---
+
+enum StudentAccountType {
+  individual
+  team
+}
+
+model StudentProfile {
+  id          String             @id @default(cuid())
+  userId      String             @unique
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        StudentAccountType @default(individual)
+  bio         String?
+  mentorName  String?
+  mentorEmail String?
+  
+  // Team info (for collaborative students)
+  teamName    String?
+  teamMembers String? // Simplified for now, could be a separate model
+
+  projects    Project[]
+  applications Application[]
+  outreachRequests OutreachRequest[]
+
+  @@map("student_profile")
+}
+
+model MentorProfile {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Contact Info
+  phone        String?
+  email        String?
+  
+  // Professional Info
+  specialization String? // e.g., "Tech Startups", "Marketing", etc.
+  bio          String?
+  
+  hasTeams     Boolean @default(false)
+  managedTeams String? // Name/Email of teams managed
+
+  competitions Competition[] @relation("MentorCompetitions")
+  
+  @@map("mentor_profile")
+}
+
+enum BusinessAccountType {
+  individual
+  organization
+}
+
+model BusinessProfile {
+  id           String              @id @default(cuid())
+  userId       String              @unique
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         BusinessAccountType @default(individual)
+  
+  // Organization Info
+  companyName  String?
+  bio          String?
+  
+  // Contact Info
+  phone        String?
+  email        String?
+  
+  // Investment Focus
+  focusAreas   String? // e.g., "EdTech, FinTech"
+  investmentRange String? // e.g., "$10k-$50k"
+  
+  investments  Investment[]
+
+  @@map("business_profile")
+}
+
+// --- DOMAIN MODELS ---
+
+model Project {
+  id            String   @id @default(cuid())
+  ownerId       String
+  owner         StudentProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  // Basic Info
+  title         String
+  description   String
+  shortDesc     String?  // Brief description for cards
+  
+  // Links
+  pitchDeckUrl  String?
+  pitchVideoUrl String?
+  githubUrl     String?
+  
+  // Development Stage
+  stage         String   // Idea, MVP, Scaling, etc.
+  
+  // Mentor Info
+  hasMentor     Boolean  @default(false)
+  mentorName    String?
+  mentorEmail   String?
+  
+  // Investment Info
+  hasInvestors  Boolean  @default(false)
+  investorNames String?  // Comma-separated
+  investment    Float    @default(0)
+  
+  // Participation History
+  participations String? // Competitions/events participated in
+  victories     String?  // Description of prizes/wins
+  
+  // Visibility
+  isPublished   Boolean  @default(true)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  reviews       Review[]
+  applications  Application[]
+  investments   Investment[]
+  outreachRequests OutreachRequest[]
+
+  @@map("project")
+}
+
+enum CompetitionCategory {
+  startup
+  olympiad
+  hackathon
+  other
+}
+
+model Competition {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    CompetitionCategory @default(startup)
+  
+  // Registration & Timing
+  deadline    DateTime
+  registrationDeadline DateTime
+  isClosed    Boolean  @default(false)
+  
+  // Details
+  prizes      String?  // JSON or text description
+  rulesDocument String? // URL to rules PDF/doc
+  files       String?  // URLs or file paths
+  
+  // Creator
+  creatorId   String
+  creator     MentorProfile @relation("MentorCompetitions", fields: [creatorId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  
+  applications Application[]
+
+  @@map("competition")
+}
+
+model Application {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  competitionId String?
+  competition   Competition? @relation(fields: [competitionId], references: [id])
+  
+  // Submission details
+  phone         String
+  email         String
+  githubUrl     String?
+  docsUrl       String?
+  subject       String?  // For Olympiads
+  status        String   @default("pending") // pending, approved, rejected
+  
+  studentId     String
+  student       StudentProfile @relation(fields: [studentId], references: [id])
+  
+  createdAt     DateTime @default(now())
+
+  @@map("application")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation("ReviewsWritten", fields: [authorId], references: [id])
+  content   String
+  rating    Int
+  createdAt DateTime @default(now())
+
+  @@map("review")
+}
+
+model Investment {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  investorId  String
+  investor    BusinessProfile @relation(fields: [investorId], references: [id])
+  amount      Float?
+  status      String   @default("interested") // interested, committed, completed
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@map("investment")
+}
+
+enum OutreachType {
+  mentor
+  investor
+}
+
+enum OutreachStatus {
+  sent
+  viewed
+  accepted
+  rejected
+}
+
+model OutreachRequest {
+  id          String   @id @default(cuid())
+  type        OutreachType
+  status      OutreachStatus @default(sent)
+  
+  // Student Info
+  studentId   String
+  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  // Project Info
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  // Target (Mentor or Investor)
+  targetEmail String
+  targetPhone String?
+  
+  // Message
+  message     String?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("outreach_request")
+}
+
+// --- BETTER AUTH INTERNAL TABLES ---
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
