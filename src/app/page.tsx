@@ -67,13 +67,19 @@ export default function HomePage() {
                     </Card>
                 </div>
 
-                <div className="mt-12 flex justify-center">
+                <div className="mt-12 flex flex-col items-center gap-4">
                     <Link href="/role-select">
                         <Button className="h-14 px-10 rounded-full text-lg font-semibold shadow-premium">
                             Начать путешествие
                             <ArrowRight className="ml-3 h-5 w-5" />
                         </Button>
                     </Link>
+                    <p className="text-sm text-surface-500">
+    Уже есть аккаунт?{' '}
+    <Link href="/login" className="font-semibold text-brand-600 hover:text-brand-700 underline">
+        Войти
+    </Link>
+</p>
                 </div>
             </div>
         </div>

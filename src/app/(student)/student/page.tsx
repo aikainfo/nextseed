@@ -100,7 +100,7 @@ export default function StudentDashboardPortal() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div>
                             <h1 className="text-3xl font-black text-surface-900 flex items-center gap-3">
-                                <span className="bg-gradient-to-r from-brand-500 to-sky-500 bg-clip-text text-transparent">Nexus</span> Student Hub
+                                <span className="bg-gradient-to-r from-brand-500 to-sky-500 bg-clip-text text-transparent">NextSeed</span> Student Hub
                             </h1>
                             <p className="text-surface-500 mt-1 font-medium">Исследуйте проекты, находите конкурсы и связывайтесь с экспертами</p>
                         </div>
@@ -114,7 +114,7 @@ export default function StudentDashboardPortal() {
                             <div className="flex items-center gap-3 pl-2">
                                 <div className="text-right hidden sm:block">
                                     <p className="text-sm font-bold text-surface-900">{user?.name || "Пользователь"}</p>
-                                    <p className="text-[10px] text-brand-600 font-black uppercase tracking-tighter">Student Account</p>
+                                    <p className="text-[10px] text-brand-600 font-black uppercase tracking-tighter">{user?.email || "student@nextseed.local"}</p>
                                 </div>
                                 <div className="h-12 w-12 rounded-xl bg-brand-100 flex items-center justify-center text-brand-700 font-black border-2 border-white shadow-sm">
                                     {user?.name?.charAt(0) || "S"}
