@@ -16,6 +16,7 @@ import { ArrowLeft } from "lucide-react"
 export default function LoginPage() {
     const router = useRouter()
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [error, setError] = useState<string | null>(null)
     const [formData, setFormData] = useState({
         email: "",
         password: "",
@@ -25,16 +26,29 @@ export default function LoginPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsSubmitting(true)
+        setError(null)
 
         try {
-            // TODO: Implement actual authentication
-            console.log("Logging in:", formData)
-            await new Promise(resolve => setTimeout(resolve, 1000))
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    rememberMe: formData.remember,
+                }),
+            })
 
-            // Mock: redirect based on role (replace with actual logic)
-            router.push("/student/projects")
+            const data = await res.json()
+            if (!res.ok || !data.success) {
+                setError(data.error || "Ошибка входа")
+                return
+            }
+
+            router.push(data.redirectUrl || "/student")
         } catch (error) {
             console.error("Login failed:", error)
+            setError("Ошибка входа. Попробуйте еще раз.")
         } finally {
             setIsSubmitting(false)
         }
@@ -96,6 +110,12 @@ export default function LoginPage() {
                             {isSubmitting ? "Вход..." : "Войти"}
                         </Button>
                     </form>
+
+                    {error && (
+                        <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                            {error}
+                        </div>
+                    )}
 
                     <div className="mt-6 text-center text-sm text-surface-600">
                         Нет аккаунта?{" "}

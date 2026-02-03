@@ -11,9 +11,6 @@ import { USER_ROLES } from "@/lib/utils/constants"
 
 /**
  * Registration Form Component
- * Migrated from student-registration.html, mentor-registration.html, business-registration.html
- * 
- * Handles registration for all user roles with validation
  */
 export function RegisterForm() {
     const router = useRouter()
@@ -39,27 +36,19 @@ export function RegisterForm() {
         setError(null)
 
         try {
-            // TODO: Replace with actual Better Auth registration
-            // For now, simulate registration with localStorage (backward compatibility)
-            const userData = {
-                id: crypto.randomUUID(),
-                name: data.name,
-                email: data.email,
-                role: data.role,
-                createdAt: new Date().toISOString(),
+            const res = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
+            })
+
+            const result = await res.json()
+            if (!res.ok || !result.success) {
+                setError(result.error || "Ошибка регистрации")
+                return
             }
 
-            // Store in localStorage temporarily
-            localStorage.setItem("nextseed.user", JSON.stringify(userData))
-
-            // Redirect based on role
-            if (data.role === "student") {
-                router.push("/student")
-            } else if (data.role === "mentor") {
-                router.push("/mentor")
-            } else {
-                router.push("/business")
-            }
+            router.push(result.redirectUrl || `/${data.role}`)
         } catch (err) {
             setError("Произошла ошибка при регистрации. Попробуйте снова.")
             console.error(err)

@@ -9,10 +9,35 @@ import { useRouter } from "next/navigation"
 export default function CreateProjectPage() {
     const router = useRouter()
 
-    const handleSubmit = (data: any) => {
-        console.log("Creating project:", data)
-        alert("Проект создан!")
-        router.push("/student/projects")
+    const handleSubmit = async (data: any) => {
+        const stageMap: Record<string, string> = {
+            idea: "Idea",
+            mvp: "MVP",
+            active: "Active",
+        }
+
+        try {
+            const res = await fetch("/api/user/create-project", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: data.title,
+                    description: data.description,
+                    shortDescription: data.description?.slice(0, 150),
+                    stage: stageMap[data.status] || data.status || "Idea",
+                }),
+            })
+
+            if (res.ok) {
+                router.push("/student/projects")
+            } else {
+                const err = await res.json().catch(() => ({}))
+                alert(err.error || "Ошибка создания проекта")
+            }
+        } catch (error) {
+            console.error("Create project failed:", error)
+            alert("Ошибка сети. Попробуйте снова.")
+        }
     }
 
     const handleCancel = () => {

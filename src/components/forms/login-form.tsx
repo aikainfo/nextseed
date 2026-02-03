@@ -11,9 +11,6 @@ import { USER_ROLES } from "@/lib/utils/constants"
 
 /**
  * Login Form Component
- * Migrated from role-login.js logic
- * 
- * Handles login for all user roles with validation
  */
 export function LoginForm() {
     const router = useRouter()
@@ -36,31 +33,23 @@ export function LoginForm() {
         setError(null)
 
         try {
-            // TODO: Replace with actual Better Auth login
-            // For now, simulate login with localStorage check
-            const storedUser = localStorage.getItem("nextseed.user")
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: data.email,
+                    password: data.password,
+                    role: data.role,
+                }),
+            })
 
-            if (!storedUser) {
-                setError("Неверный email или пароль (или профиль не зарегистрирован)")
+            const result = await res.json()
+            if (!res.ok || !result.success) {
+                setError(result.error || "Ошибка входа")
                 return
             }
 
-            const user = JSON.parse(storedUser)
-
-            // Simple validation (in real app, this would be server-side)
-            if (user.email !== data.email || user.role !== data.role) {
-                setError("Неверный email или пароль (или профиль не зарегистрирован)")
-                return
-            }
-
-            // Redirect based on role
-            if (data.role === "student") {
-                router.push("/student")
-            } else if (data.role === "mentor") {
-                router.push("/mentor")
-            } else {
-                router.push("/business")
-            }
+            router.push(result.redirectUrl || `/${data.role}`)
         } catch (err) {
             setError("Произошла ошибка при входе. Попробуйте снова.")
             console.error(err)

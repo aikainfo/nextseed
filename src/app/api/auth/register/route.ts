@@ -1,81 +1,129 @@
 import { NextRequest, NextResponse } from "next/server"
-import { PrismaClient } from "@prisma/client"
-import bcrypt from "bcryptjs"
+import prisma from "@/lib/prisma"
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
 
-const prisma = new PrismaClient()
+const applyAuthCookies = (response: NextResponse, authHeaders?: Headers) => {
+    if (!authHeaders) return
+
+    // getSetCookie is available in Node/Next.js Headers
+    // @ts-expect-error - runtime provides getSetCookie
+    const getSetCookie = typeof authHeaders.getSetCookie === "function" ? authHeaders.getSetCookie.bind(authHeaders) : null
+    const setCookies = getSetCookie
+        ? getSetCookie()
+        : authHeaders.get("set-cookie")
+            ? [authHeaders.get("set-cookie") as string]
+            : []
+
+    setCookies.forEach((cookie) => {
+        if (cookie) response.headers.append("set-cookie", cookie)
+    })
+}
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { name, email, password, role, bio, accountType, teamName, teamMembers } = body
+        const {
+            name,
+            email,
+            password,
+            role,
+            accountType,
+            hasMentor,
+            mentorName,
+            mentorEmail,
+            bio,
+            teamName,
+            teamMembers,
+            competitions,
+            participatedWhere,
+            expertise,
+            companyName,
+            interests,
+        } = body
 
-        console.log("🔵 [REGISTER] Starting registration for:", email, "Role:", role)
+        const allowedRoles = ["student", "mentor", "business"]
 
-        // Check if user already exists
-        const existingUser = await prisma.user.findUnique({
-            where: { email },
-        })
-
-        if (existingUser) {
-            return NextResponse.json(
-                { success: false, error: "Пользователь с таким email уже существует" },
-                { status: 400 }
-            )
+        if (!name || !email || !password || !role) {
+            return NextResponse.json({ success: false, error: "Заполните имя, email, пароль и роль" }, { status: 400 })
+        }
+        if (!allowedRoles.includes(role)) {
+            return NextResponse.json({ success: false, error: "Некорректная роль" }, { status: 400 })
         }
 
-        // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10)
+        const existingUser = await prisma.user.findUnique({ where: { email } })
+        if (existingUser) {
+            return NextResponse.json({ success: false, error: "Пользователь с таким email уже существует" }, { status: 400 })
+        }
 
-        // Create user with profile based on role
-        const user = await prisma.user.create({
-            data: {
+        const { response: signUpResult, headers: authHeaders } = await auth.api.signUpEmail({
+            headers: await headers(),
+            body: {
                 name,
                 email,
-                role: role as "student" | "mentor" | "business",
-                accounts: {
-                    create: {
-                        accountId: email,
-                        providerId: "credential",
-                        password: hashedPassword,
-                    },
-                },
-                ...(role === "student" && {
-                    studentProfile: {
-                        create: {
-                            type: accountType || "individual",
-                            bio: bio || "",
-                            teamName: teamName || null,
-                            teamMembers: teamMembers || null,
-                        },
-                    },
-                }),
-                ...(role === "mentor" && {
-                    mentorProfile: {
-                        create: {},
-                    },
-                }),
-                ...(role === "business" && {
-                    businessProfile: {
-                        create: {
-                            type: accountType || "individual",
-                            companyName: name,
-                        },
-                    },
-                }),
+                password,
+                role,
             },
+            returnHeaders: true,
+        } as any)
+
+        const createdUser = signUpResult?.user
+        if (!createdUser?.id) {
+            return NextResponse.json({ success: false, error: "Не удалось создать пользователя" }, { status: 500 })
+        }
+
+        await prisma.user.update({
+            where: { id: createdUser.id },
+            data: { role },
         })
 
-        console.log("✅ [REGISTER] User created:", user.id)
+        if (role === "student") {
+            await prisma.studentProfile.create({
+                data: {
+                    userId: createdUser.id,
+                    type: accountType === "team" ? "team" : "individual",
+                    bio: bio || "",
+                    mentorName: hasMentor === "yes" ? mentorName : null,
+                    mentorEmail: hasMentor === "yes" ? mentorEmail : null,
+                    teamName: accountType === "team" ? teamName : null,
+                    teamMembers: accountType === "team" ? teamMembers : null,
+                    participatedWhere: participatedWhere || competitions || null,
+                },
+            })
+        }
 
-        // Set cookies for middleware
+        if (role === "mentor") {
+            await prisma.mentorProfile.create({
+                data: {
+                    userId: createdUser.id,
+                    bio: bio || null,
+                    expertise: expertise || null,
+                    hasTeams: !!teamName,
+                    managedTeams: teamName || null,
+                },
+            })
+        }
+
+        if (role === "business") {
+            await prisma.businessProfile.create({
+                data: {
+                    userId: createdUser.id,
+                    type: accountType === "team" ? "organization" : "individual",
+                    companyName: accountType === "team" ? companyName || null : companyName || name,
+                    bio: bio || null,
+                    interests: interests || null,
+                },
+            })
+        }
+
         const response = NextResponse.json({
             success: true,
             redirectUrl: `/${role}`,
             user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
+                id: createdUser.id,
+                name: createdUser.name,
+                email: createdUser.email,
+                role,
             },
         })
 
@@ -83,25 +131,24 @@ export async function POST(request: NextRequest) {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
-            maxAge: 60 * 60 * 24 * 7, // 7 days
+            maxAge: 60 * 60 * 24 * 7,
         })
 
-        response.cookies.set("user_id", user.id, {
+        response.cookies.set("user_id", createdUser.id, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
             maxAge: 60 * 60 * 24 * 7,
         })
 
-        console.log("✅ [REGISTER] Cookies set. Role:", role)
-        console.log("✅ [REGISTER] Redirect URL:", `/${role}`)
+        applyAuthCookies(response, authHeaders)
 
         return response
-    } catch (error) {
+    } catch (error: any) {
         console.error("❌ [REGISTER] Error:", error)
         return NextResponse.json(
-            { success: false, error: "Ошибка при регистрации" },
-            { status: 500 }
+            { success: false, error: error?.message || "Ошибка при регистрации" },
+            { status: error?.statusCode || 500 }
         )
     }
 }
