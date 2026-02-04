@@ -34,7 +34,8 @@ model User {
   businessProfile BusinessProfile?
 
   // Interactions
-  reviewsWritten Review[] @relation("ReviewsWritten")
+  reviewsWritten   Review[]          @relation("ReviewsWritten")
+  receivedRequests OutreachRequest[] @relation("ReceivedRequests")
 
   @@map("user")
 }
@@ -57,8 +58,11 @@ model StudentProfile {
   
   // Team info (for collaborative students)
   teamName    String?
-  teamMembers String? // Simplified for now, could be a separate model
+  teamMembers String? 
 
+  // Additional fields from requirements
+  participatedWhere String? // Where they participated before
+  
   projects    Project[]
   applications Application[]
   outreachRequests OutreachRequest[]
@@ -70,17 +74,10 @@ model MentorProfile {
   id           String  @id @default(cuid())
   userId       String  @unique
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Contact Info
-  phone        String?
-  email        String?
-  
-  // Professional Info
-  specialization String? // e.g., "Tech Startups", "Marketing", etc.
-  bio          String?
-  
   hasTeams     Boolean @default(false)
   managedTeams String? // Name/Email of teams managed
+  bio          String?
+  expertise    String?
 
   competitions Competition[] @relation("MentorCompetitions")
   
@@ -97,18 +94,9 @@ model BusinessProfile {
   userId       String              @unique
   user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   type         BusinessAccountType @default(individual)
-  
-  // Organization Info
   companyName  String?
   bio          String?
-  
-  // Contact Info
-  phone        String?
-  email        String?
-  
-  // Investment Focus
-  focusAreas   String? // e.g., "EdTech, FinTech"
-  investmentRange String? // e.g., "$10k-$50k"
+  interests    String?
   
   investments  Investment[]
 
@@ -118,95 +106,74 @@ model BusinessProfile {
 // --- DOMAIN MODELS ---
 
 model Project {
-  id            String   @id @default(cuid())
-  ownerId       String
-  owner         StudentProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id               String   @id @default(cuid())
+  ownerId          String
+  owner            StudentProfile @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  shortDescription String?
+  stage            String   // Idea, MVP, Scaling, etc.
   
-  // Basic Info
-  title         String
-  description   String
-  shortDesc     String?  // Brief description for cards
+  // New detailed fields
+  pitchDeckUrl     String?
+  pitchVideoUrl    String?
+  githubUrl        String?
   
-  // Links
-  pitchDeckUrl  String?
-  pitchVideoUrl String?
-  githubUrl     String?
+  hasMentor        Boolean  @default(false)
+  mentorName       String?
   
-  // Development Stage
-  stage         String   // Idea, MVP, Scaling, etc.
+  hasInvestors     Boolean  @default(false)
+  investedAmount   Float    @default(0)
   
-  // Mentor Info
-  hasMentor     Boolean  @default(false)
-  mentorName    String?
-  mentorEmail   String?
+  previousEvents   String?  // Where they participated
   
-  // Investment Info
-  hasInvestors  Boolean  @default(false)
-  investorNames String?  // Comma-separated
-  investment    Float    @default(0)
-  
-  // Participation History
-  participations String? // Competitions/events participated in
-  victories     String?  // Description of prizes/wins
-  
-  // Visibility
-  isPublished   Boolean  @default(true)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  reviews       Review[]
-  applications  Application[]
-  investments   Investment[]
+  reviews          Review[]
+  applications     Application[]
+  investments      Investment[]
   outreachRequests OutreachRequest[]
 
   @@map("project")
 }
 
-enum CompetitionCategory {
-  startup
-  olympiad
-  hackathon
-  other
-}
-
 model Competition {
-  id          String   @id @default(cuid())
-  title       String
-  description String
-  category    CompetitionCategory @default(startup)
+  id               String   @id @default(cuid())
+  title            String
+  description      String
+  rules            String?  // Detailed rules/document content
+  awards           String?  // Prizes info
+  deadline         DateTime
+  registrationEnd  DateTime? 
+  eventDate        DateTime? // For olympiads
   
-  // Registration & Timing
-  deadline    DateTime
-  registrationDeadline DateTime
-  isClosed    Boolean  @default(false)
+  type             String   @default("startup") // startup, olympiad
   
-  // Details
-  prizes      String?  // JSON or text description
-  rulesDocument String? // URL to rules PDF/doc
-  files       String?  // URLs or file paths
+  files            String?  // URLs or file paths
+  creatorId        String
+  creator          MentorProfile @relation("MentorCompetitions", fields: [creatorId], references: [id])
+  createdAt        DateTime @default(now())
   
-  // Creator
-  creatorId   String
-  creator     MentorProfile @relation("MentorCompetitions", fields: [creatorId], references: [id])
-  
-  createdAt   DateTime @default(now())
-  
-  applications Application[]
+  applications     Application[]
 
   @@map("competition")
 }
 
+
 model Application {
   id            String   @id @default(cuid())
-  projectId     String
-  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId     String?  // Optional for Olympiads if team/project not required
+  project       Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
   competitionId String?
   competition   Competition? @relation(fields: [competitionId], references: [id])
   
   // Submission details
+  type          String   @default("startup") // startup, personal
+  category      String?  // For Olympiads
   phone         String
   email         String
+  name          String?  // For personal registration
   githubUrl     String?
   docsUrl       String?
   subject       String?  // For Olympiads
@@ -219,6 +186,7 @@ model Application {
 
   @@map("application")
 }
+
 
 model Review {
   id        String   @id @default(cuid())
@@ -247,43 +215,23 @@ model Investment {
   @@map("investment")
 }
 
-enum OutreachType {
-  mentor
-  investor
-}
-
-enum OutreachStatus {
-  sent
-  viewed
-  accepted
-  rejected
-}
-
 model OutreachRequest {
   id          String   @id @default(cuid())
-  type        OutreachType
-  status      OutreachStatus @default(sent)
-  
-  // Student Info
-  studentId   String
-  student     StudentProfile @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  
-  // Project Info
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  // Target (Mentor or Investor)
-  targetEmail String
-  targetPhone String?
-  
-  // Message
-  message     String?
-  
+  senderId    String
+  sender      StudentProfile @relation(fields: [senderId], references: [id])
+  receiverId  String
+  // receiver is a User (Mentor or Business)
+  receiver    User @relation("ReceivedRequests", fields: [receiverId], references: [id])
+  projectId   String?
+  project     Project? @relation(fields: [projectId], references: [id])
+  message     String
+  status      String   @default("sent") // sent, viewed, accepted, rejected
+  type        String   // mentor, investor
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   @@map("outreach_request")
 }
+
 
 // --- BETTER AUTH INTERNAL TABLES ---
 
