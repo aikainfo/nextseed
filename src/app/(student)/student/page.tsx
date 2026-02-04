@@ -1,6 +1,8 @@
 "use client"
 
 import React, { useState, useEffect } from 'react';
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ProjectList } from '@/components/projects/project-list';
 import { CompetitionCard } from '@/components/competitions/competition-card';
@@ -13,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
 export default function StudentDashboardPortal() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState('projects');
     const [user, setUser] = useState<any>(null);
     const [myProjects, setMyProjects] = useState<any[]>([]);
@@ -28,6 +31,10 @@ export default function StudentDashboardPortal() {
         async function fetchUserData() {
             try {
                 const res = await fetch('/api/user/profile');
+                if (res.status === 401) {
+                    router.push("/login");
+                    return;
+                }
                 if (res.ok) {
                     const data = await res.json();
                     setUser(data.user);
@@ -44,7 +51,7 @@ export default function StudentDashboardPortal() {
             }
         }
         fetchUserData();
-    }, []);
+    }, [router]);
 
     const handleApplyCompetition = (compId: string) => {
         const comp = MOCK_COMPETITIONS.find(c => c.id === compId);
@@ -111,7 +118,7 @@ export default function StudentDashboardPortal() {
                                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 border-2 border-white rounded-full"></span>
                             </Button>
                             <div className="h-10 w-[1px] bg-surface-100 mx-2 hidden md:block"></div>
-                            <div className="flex items-center gap-3 pl-2">
+                            <Link href="/student/profile" className="flex items-center gap-3 pl-2 hover:opacity-90 transition">
                                 <div className="text-right hidden sm:block">
                                     <p className="text-sm font-bold text-surface-900">{user?.name || "Пользователь"}</p>
                                     <p className="text-[10px] text-brand-600 font-black uppercase tracking-tighter">{user?.email || "student@nextseed.local"}</p>
@@ -120,7 +127,7 @@ export default function StudentDashboardPortal() {
                                     {user?.name?.charAt(0) || "S"}
                                 </div>
 
-                            </div>
+                            </Link>
                         </div>
                     </div>
                 </div>

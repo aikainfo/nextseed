@@ -13,7 +13,16 @@ export async function POST(req: Request) {
         }
 
         const data = await req.json();
-        const { name, accountType, teamName, participatedWhere, bio } = data;
+        const {
+            name,
+            accountType,
+            teamName,
+            teamMembers,
+            mentorName,
+            mentorEmail,
+            participatedWhere,
+            bio,
+        } = data;
 
         const updatedUser = await prisma.user.update({
             where: { id: session.user.id },
@@ -24,12 +33,18 @@ export async function POST(req: Request) {
                         create: {
                             type: accountType === 'team' ? 'team' : 'individual',
                             teamName: accountType === 'team' ? teamName : null,
+                            teamMembers: accountType === 'team' ? teamMembers || null : null,
+                            mentorName: mentorName || null,
+                            mentorEmail: mentorEmail || null,
                             participatedWhere,
                             bio
                         },
                         update: {
                             type: accountType === 'team' ? 'team' : 'individual',
                             teamName: accountType === 'team' ? teamName : null,
+                            teamMembers: accountType === 'team' ? teamMembers || null : null,
+                            mentorName: mentorName || null,
+                            mentorEmail: mentorEmail || null,
                             participatedWhere,
                             bio
                         }
