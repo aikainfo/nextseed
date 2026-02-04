@@ -1,0 +1,27 @@
+export const MOCK_BUSINESS_COMPETITIONS = [
+    {
+        id: "bc1",
+        title: "NextSeed Business Challenge 2026",
+        description: "Конкурс для стартапов с фокусом на устойчивое развитие и ESG-метрики.",
+        rules: "1. Команда 1-5 человек.\n2. MVP или прототип обязателен.\n3. Регистрация до 10 апреля.",
+        awards: "Инвестиции до $50,000 + менторство",
+        deadline: new Date("2026-06-10"),
+        registrationEnd: new Date("2026-04-10"),
+        type: "startup",
+        isOwner: true,
+        creator: { user: { name: "Business Hub" } },
+    },
+    {
+        id: "bc2",
+        title: "Digital Economy Олимпиада",
+        description: "Индивидуальный конкурс для школьников и студентов по цифровой экономике.",
+        rules: "1. Индивидуальное участие.\n2. Онлайн-формат.\n3. Регистрация до 1 марта.",
+        awards: "Гранты на обучение + стажировки",
+        deadline: new Date("2026-05-05"),
+        registrationEnd: new Date("2026-03-01"),
+        eventDate: new Date("2026-05-12"),
+        type: "olympiad",
+        isOwner: false,
+        creator: { user: { name: "Digital Economy Fund" } },
+    },
+]
