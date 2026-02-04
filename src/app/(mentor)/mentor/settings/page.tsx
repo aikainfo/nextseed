@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Trash2, LogOut, AlertTriangle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-export default function StudentSettingsPage() {
+export default function MentorSettingsPage() {
     const router = useRouter()
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
     const [loading, setLoading] = useState(false)
